@@ -1,0 +1,12 @@
+name: Dartuino
+version: 0.1.0
+author: Copyright 2014 Dartuino authors. Please see AUTHORS
+description: Arduino Emulator
+environment:
+  sdk: '>=1.5.0'
+dependencies:
+  browser: any
+  logging: '>=0.9.1+1 <0.10.0'
+  logging_handlers: '>=0.8.0 <0.9.0'
+  quiver: '>=0.18.2 <0.19.0'
+  unittest: any
