@@ -140,7 +140,7 @@ class Timer0 {
           if (tcnt0 == 255) {
 
             if (toie0 == 1) {
-              this.mcu.interruptManager.registerPending(InterruptManager.INTERRUPT_TIMER0_OVF);
+              this.mcu.interruptManager.registerPending(InterruptManager.TIMER0_OVF_VECTOR);
             }
 
             tcnt0 = 0;

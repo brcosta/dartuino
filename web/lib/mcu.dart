@@ -83,6 +83,7 @@ class MCUnit {
    * Program Counter Register.
    */
   int _pc;
+  int lastPc;
 
   /**
    * Total executed cycles.
@@ -146,7 +147,7 @@ class MCUnit {
    */
   void reset(String hexFile) {
 
-    _memoryStorage = new Uint8List(MEMORY_SIZE + SP_DEFAULT_VALUE);
+    _memoryStorage = new Uint8List(MEMORY_SIZE + SP_DEFAULT_VALUE + 1);
     _flashStorage = parseIntelHex(hexFile);
 
     memory = new Memory(_memoryStorage);
@@ -240,6 +241,7 @@ class MCUnit {
   int get pc => _pc;
 
   set pc(int value) {
+    lastPc = _pc;
     _pc = value;
   }
 

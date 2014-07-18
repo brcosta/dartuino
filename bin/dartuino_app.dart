@@ -38,7 +38,7 @@ void main() {
 
 void runMcu() {
 
-  File file = new File("Blink.hex");
+  File file = new File("DigitalReadSerial.cpp.hex");
 
   mcu = new MCUnit.fromHex(file.readAsStringSync());
 
@@ -64,7 +64,7 @@ void runMcu() {
 
 void setupLog() {
 
-  Logger.root.level = Level.INFO;
+  Logger.root.level = Level.FINEST;
   Logger.root.onRecord.listen(new LogPrintHandler(printFunc: print));
 
 }
