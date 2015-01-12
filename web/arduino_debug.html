@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<link rel="import" href="packages/polymer/polymer.html">
+<polymer-element name="arduino-debug">
+
+  <template>
+  
+  <form id="read">
+    <input type="file" id="files" name="files[]" multiple />
+  </form>
+  
+  <button on-click={{requestTick}} id="button">Start</button>
+  
+  <div id="debugPanel">
+      <div><strong>Ports:</strong></div>
+      <div>Port B: {{portB}}</div>
+      <div>Port C: {{portC}}</div>
+      <div>Port D: {{portD}}</div>
+      
+      <table style="width: 100%; font-family: 'Mono'">
+        <thead>
+          <tr>
+            <th>PC</th>
+            <th>SP</th>
+            <th>Status</th>
+            <th>Cycles</th>
+          </tr>
+        </thead>
+        
+        <tbody>
+        <tr>
+          <td>{{pc}}</td>
+          <td>{{sp}}</td>
+          <td>{{status}}</td>
+          <td>{{cycles}}</td>
+        </tr>
+        </tbody>
+            
+      <table style="font-family: 'Mono'">      
+        <tbody>
+        <tr>
+          <th>C</th>
+          <td>{{c}}</td>
+        </tr>
+        <tr>
+          <th>Z</th>
+          <td>{{z}}</td>
+        </tr>
+        <tr>
+          <th>N</th>
+          <td>{{n}}</td>
+        </tr>
+        <tr>
+        <th>V</th>
+          <td>{{v}}</td>
+        </tr>
+        <tr>
+          <th>S</th>
+          <td>{{s}}</td>
+        </tr>
+        <tr>
+          <th>H</th>
+          <td>{{h}}</td>
+        </tr>
+        <tr>
+          <th>T</th>
+          <td>{{t}}</td>
+        </tr>
+        <tr>
+          <th>I</th>
+          <td>{{i}}</td>
+        </tr>
+        </tbody>
+        </table>
+
+      <br/>
+
+  </div>
+  
+  </template>
+
+  <script type="application/dart" src="arduino_debug.dart"></script>
+
+  
+</polymer-element>

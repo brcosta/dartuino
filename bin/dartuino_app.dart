@@ -16,6 +16,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:logging_handlers/logging_handlers_shared.dart';
+import 'package:logging_handlers/server_logging_handlers.dart';
 
 import '../web/lib/mcu.dart';
 import '../web/lib/clock.dart';
@@ -27,10 +28,6 @@ MCUnit mcu;
 void main() {
 
   setupLog();
-  hierarchicalLoggingEnabled = true;
-
-  initializeInstructions();
-  initializeInstructionsLookup();
 
   runMcu();
 
@@ -38,33 +35,27 @@ void main() {
 
 void runMcu() {
 
-  File file = new File("DigitalReadSerial.cpp.hex");
+  File file = new File("Blink.cpp.hex");
 
   mcu = new MCUnit.fromHex(file.readAsStringSync());
 
-  mcu.connect(MCUnit.PORTB_ADDRESS, writeListener: (k, v) {
+  mcu.connect(MCUnit.PORTB_ADDRESS, write: (k, v) {
     log.info('PORTB: = ' + v.toRadixString(2).padLeft(8, '0'));
   });
 
-  mcu.connect(MCUnit.PORTC_ADDRESS, writeListener: (k, v) {
-    log.info('PORTC: = ' + v.toRadixString(2).padLeft(8, '0'));
-  });
-
-  mcu.connect(MCUnit.PORTD_ADDRESS, writeListener: (k, v) {
-    log.info('PORTD: = ' + v.toRadixString(2).padLeft(8, '0'));
-  });
-
-  Clock clock = new Clock();
-  mcu.clock = clock;
-
-  log.info("---- Running ----");
+  Clock clock = new Clock(mcu);
   clock.run();
 
 }
 
 void setupLog() {
+  
+  hierarchicalLoggingEnabled = true;
 
-  Logger.root.level = Level.FINEST;
+  Logger.root.level = Level.FINE;
+  //Logger.root.level = Level.FINEST;
+
   Logger.root.onRecord.listen(new LogPrintHandler(printFunc: print));
+  //Logger.root.onRecord.listen(new SyncFileLoggingHandler("/home/bruno/log.txt"));
 
 }
