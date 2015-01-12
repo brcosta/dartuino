@@ -25,31 +25,30 @@ import 'lib/src/modules/timer.dart';
 final Logger log = new Logger('main');
 
 InputElement _fileInput;
+InputElement _input;
+bool _ticking = false;
 
 MCUnit mcu;
-Timer0 timer0;
+Clock clock;
 
 void main() {
 
   _fileInput = document.querySelector('#files');
   _fileInput.onChange.listen((e) => _onFileInputChange());
-
+  _input = document.querySelector('#button');
+  _input.onClick.listen(
+      (event) {
+    requestTick();
+  } 
+  );
   setupLog();
-  hierarchicalLoggingEnabled = true;
-
-  initializeInstructions();
-  initializeInstructionsLookup();
 
 }
 
 void runMcu() {
 
-  log.info("Starting MCU Clock");
-  Clock clock = new Clock();
-
-  mcu.clock = clock;
-  log.info("-- Running --");
-  clock.run();
+  clock = new Clock(mcu);
+  //clock.addPulseListener((var clock) { log.info("teste"); } );
 
 }
 
@@ -69,28 +68,59 @@ void loadAndRun(e) {
 
   mcu = new MCUnit.fromHex(e.target.result.toString());
 
-  mcu.connect(MCUnit.PORTB_ADDRESS, writeListener: (k, v) {
+  mcu.connect(MCUnit.PORTB_ADDRESS, write: (k, v) {
     log.info('PORTB: = ' + v.toRadixString(2).padLeft(8, '0'));
   });
 
-  mcu.connect(MCUnit.PORTC_ADDRESS, writeListener: (k, v) {
+  mcu.connect(MCUnit.PORTC_ADDRESS, write: (k, v) {
     log.info('PORTC: = ' + v.toRadixString(2).padLeft(8, '0'));
   });
 
-  mcu.connect(MCUnit.PORTD_ADDRESS, writeListener: (k, v) {
+  mcu.connect(MCUnit.PORTD_ADDRESS, write: (k, v) {
     log.info('PORTD: = ' + v.toRadixString(2).padLeft(8, '0'));
   });
 
   const progressRate = const Duration(milliseconds: 5);
 
   runMcu();
+  
+}
 
+void requestTick() {
+  if (!_ticking) {
+    window.animationFrame.then(_update);
+    _ticking = true;
+  }
+}
+
+void _update(num time) {
+  for (int i = 0; i < 960*12; i++) {
+  clock.pulse();
+  }
+  _ticking = false;
+  requestTick();
+  
+  TableElement table2 = new TableElement();
+   table2.style.width='100%';
+   var tBody2 = table2.createTBody(); 
+
+   tBody2.insertRow(0)..insertCell(0).text = mcu.memory[MCUnit.PORTB_ADDRESS].toRadixString(2).padLeft(8, '0')
+                  ..insertCell(1).text = mcu.memory[MCUnit.PORTC_ADDRESS].toRadixString(2).padLeft(8, '0')
+                  ..insertCell(2).text = mcu.memory[MCUnit.PORTD_ADDRESS].toRadixString(2).padLeft(8, '0');
+
+   tBody2.insertRow(1)..insertCell(0).text = "0x${mcu.sp.toRadixString(16).padLeft(4, '0').toUpperCase()}"
+                  ..insertCell(1).text = "0x${mcu.pc.toRadixString(16).padLeft(4, '0').toUpperCase()}";
+   
+   var el = document.querySelector('#debugPanel');
+   el.children.clear();
+     el.children.add(table2);
 }
 
 void setupLog() {
 
-  Logger.root.level = Level.INFO;
-  Logger.root.onRecord.listen(new LogPrintHandler(printFunc: window.console.log)
-      );
+  hierarchicalLoggingEnabled = true;
+
+  Logger.root.level = Level.FINE;
+  Logger.root.onRecord.listen(new LogPrintHandler(printFunc: window.console.log));
 
 }

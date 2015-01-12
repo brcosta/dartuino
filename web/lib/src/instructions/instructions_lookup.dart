@@ -17,11 +17,16 @@ part of dartuino.mcu;
 final List<Instruction> instructionsLookup = new List<Instruction>(65536);
 final List<Instruction> allInstructions = new List<Instruction>();
 
+var initialized = false;
 /**
  * Initialize array with all Atmega instructions.
  */
-void initializeInstructions() {
+initializeInstructions() {
 
+  if (initialized) {
+    return;
+  }
+  
   allInstructions.add(new ADC());
   allInstructions.add(new ADD());
   allInstructions.add(new ADIW());
@@ -115,13 +120,16 @@ void initializeInstructions() {
   allInstructions.add(new SUBI());
   allInstructions.add(new SWAP());
   allInstructions.add(new WDR());
+  
+  initializeInstructionsLookup();
+  initialized = true;
 
 }
 
 /**
  * Generates a instruction lookup
  */
-void initializeInstructionsLookup() {
+initializeInstructionsLookup() {
 
   for (var i = 0; i < instructionsLookup.length; i++) {
     instructionsLookup[i] = allInstructions.firstWhere((x) => (i & x.mask) == x.discriminator, orElse: () => allInstructions[12]);

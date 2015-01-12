@@ -35,8 +35,10 @@ abstract class Instruction {
 
     this.mnemonic = MirrorSystem.getName(symbol);
     this.opcode = opcode;
-    this.mask = int.parse(opcode.replaceAll(new RegExp(r'\d'), "1").replaceAll(new RegExp(r'[^\d]'), "0"), radix: 2);
-    this.discriminator = int.parse(opcode.replaceAll(new RegExp(r'[^\d]'), "0"), radix: 2);
+    this.mask = int.parse(opcode.replaceAll(new RegExp(r'\d'), "1").replaceAll(
+        new RegExp(r'[^\d]'), "0"), radix: 2);
+    this.discriminator = int.parse(opcode.replaceAll(new RegExp(r'[^\d]'), "0"),
+        radix: 2);
     this.opcodeSize = opcodeSize;
     this.cycles = cycles;
 
@@ -51,13 +53,61 @@ abstract class Instruction {
 
     var result = 0;
 
-    for (var i = 16; i >= 0; i--) {
-      if (((mask >> i & 1) == 1)) {
-        result = (result << 1) | (value >> i & 1);
-      }
+    switch (mask) {
+      case 0x020F:
+        result = (value & 0x0F) | ((value >> 5) & 0x10);
+        break;
+      case 0x03F8:
+        result = (value >> 3) & 0x7F;
+        break;
+      case 0x01F1:
+        result = (value & 0x01) | ((value >> 3) & 0x3E);
+        break;
+      case 0x00F8:
+        result = ((value >> 3) & 0x1F);
+        break;
+      case 0x2C07:
+        result = (value & 0x07) | ((value >> 7) & 0x18) | ((value >> 8) & 0x20);
+        break;
+      case 0x060F:
+        result = (value & 0x0F) | ((value >> 5) & 0x30);
+        break;
+      case 0x01F0:
+        result = (value & 0x01F0) >> 4;
+        break;
+      case 0x00CF:
+        result = (value & 0x0F) | ((value >> 2) & 0x30);
+        break;
+      case 0x0F0F:
+        result = ((value & 0x0F00) >> 4) | (value & 0x000F);
+        break;
+      case 0x0070:
+        result = (value & 0x0070) >> 4;
+        break;
+      case 0x0030:
+        result = (value & 0x0030) >> 4;
+        break;
+      case 0x0007:
+        result = value & 0x0007;
+        break;
+      case 0x00F0:
+        result = (value & 0x00F0) >> 4;
+        break;
+      case 0x000F:
+        result = value & 0x000F;
+        break;
+      case 0x0FFF:
+        result = value & 0x0FFF;
+        break;
+      default:
+        for (var i = 16; i >= 0; i--) {
+          if (((mask >> i & 1) == 1)) {
+            result = (result << 1) | (value >> i & 1);
+          }
+        }
     }
 
-    return result & 0xFFFF;
+    return result;
 
   }
 
@@ -152,7 +202,7 @@ class ADIW extends Instruction {
     int K = variableValue(0x00CF, opcode); // 0000000011001111
     int d = variableValue(0x0030, opcode); // 0000000000110000
 
-    d += 24;
+    d = d * 2 + 24;
 
     if (log.isLoggable(Level.FINER)) {
       logInstruction(mcu, this, 'R$d', K);
@@ -337,7 +387,8 @@ class BRBS extends Instruction {
     int k = variableValue(0x03F8, opcode); // 0000001111111000
     int s = variableValue(0x0007, opcode); // 0000000000000111
 
-    var k1 = (getBit(k, 6) != 0) ? (-((~k + 1) & 0x3f)) : k;
+    var k1 = (getBit(k, 6) != 0) ? (-((~k + 1) & 0x3F)) : k;
+    //var k1 = (((k << 1)  & 0xFF) >> 1) & 0xFF;
 
     if (log.isLoggable(Level.FINER)) {
       logInstruction(mcu, this, k1, s);
@@ -444,7 +495,8 @@ class CBI extends Instruction {
     A += 0x20;
 
     if (log.isLoggable(Level.FINER)) {
-      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b);
+      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b
+          );
     }
 
     mcu.memory[A] = setBit(mcu.memory[A], b, 0);
@@ -534,7 +586,7 @@ class CPC extends Instruction {
     var rr = mcu.registers[r];
     var rd = mcu.registers[d];
 
-    var result = rd - rr - mcu.c;
+    var result = (rd - rr - mcu.c) & 0xFF;
     var carry = (~rd & rr) | (rr & result) | (result & ~rd);
 
     mcu.h = getBit(carry, 3);
@@ -600,7 +652,18 @@ class CPSE extends Instruction {
     int r = variableValue(0x020F, opcode); // 0000001000001111
     int d = variableValue(0x01F0, opcode); // 0000000111110000
 
-    logNotImplemented(this);
+    var rd = mcu.registers[d];
+    var rr = mcu.registers[r];
+
+    if (log.isLoggable(Level.FINER)) {
+      logInstruction(mcu, this, 'R$r', 'R$d');
+    }
+    
+    if (rr == rd) {
+      int opcodeSize = mcu.getCurrentInstruction().opcodeSize;
+       mcu.pc += opcodeSize;
+       return cycles + opcodeSize;
+    }
 
     return cycles;
 
@@ -861,7 +924,8 @@ class IN extends Instruction {
     A += 0x20;
 
     if (log.isLoggable(Level.FINER)) {
-      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', 'R$d');
+      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}',
+          'R$d');
     }
 
     mcu.registers[d] = mcu.memory[A];
@@ -1755,7 +1819,8 @@ class SBI extends Instruction {
     A += 0x20;
 
     if (log.isLoggable(Level.FINER)) {
-      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b);
+      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b
+          );
     }
 
     mcu.memory[A] = setBit(mcu.memory[A], b, 1);
@@ -1778,7 +1843,8 @@ class SBIC extends Instruction {
     A += 0x20;
 
     if (log.isLoggable(Level.FINER)) {
-      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b);
+      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b
+          );
     }
 
     int value = mcu.memory[A];
@@ -1810,7 +1876,8 @@ class SBIS extends Instruction {
     A += 0x20;
 
     if (log.isLoggable(Level.FINER)) {
-      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b);
+      logInstruction(mcu, this, '0x${A.toRadixString(16)}: ${mcu.memory[A]}', b
+          );
     }
 
     int value = mcu.memory[A];
@@ -1836,10 +1903,10 @@ class SBIW extends Instruction {
 
   int execute(MCUnit mcu, int opcode) {
 
-    int K = variableValue(0x00CF, opcode); // 0000000011001111
-    int d = variableValue(0x0030, opcode); // 0000000000110000
+    int K = variableValue(0x00CF, opcode); // 0000 0000 1100 1111
+    int d = variableValue(0x0030, opcode); // 0000 0000 0011 0000
 
-    d += 24;
+    d = d * 2 + 24;
 
     if (log.isLoggable(Level.FINER)) {
       logInstruction(mcu, this, K, "R$d");
@@ -2191,7 +2258,7 @@ class SUB extends Instruction {
     }
 
     var rd = mcu.registers[d];
-    var rr = mcu.registers[d];
+    var rr = mcu.registers[r];
 
     var result = rd - rr;
     var carry = (~rd & rr) | (rr & result) | (result & ~rd);
@@ -2262,7 +2329,8 @@ class SWAP extends Instruction {
       logInstruction(mcu, this, 'R$d');
     }
 
-    mcu.registers[d] = (mcu.registers[d] << 4) | (mcu.registers[d] >> 4) & 0xFFFF;
+    mcu.registers[d] = (mcu.registers[d] << 4) | (mcu.registers[d] >> 4) &
+        0xFFFF;
 
     return cycles;
 

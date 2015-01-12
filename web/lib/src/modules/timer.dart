@@ -57,7 +57,7 @@ class Timer0 {
   static const OCF0A = 1;
   static const OCF0B = 2;
 
-  static List prescalerLookup = [0, 1, 8, 64, 256, 1024, 0, 0];
+  static final List prescalerLookup = [0, 1, 8, 64, 256, 1024, 0, 0];
 
   int _timsk0;
   int _tcnt0;
@@ -90,12 +90,12 @@ class Timer0 {
     prescaler = 0;
     waitCycles = 0;
 
-    mcu.memory.connect(TIMSK0_ADDRESS, read: (a) => timsk0, write: (a, v) => timsk0 = v);
-    mcu.memory.connect(TCNT0_ADDRESS, read: (a) => tcnt0, write: (a, v) => tcnt0 = v);
-    mcu.memory.connect(TCCR0A_ADDRESS, read: (a) => tccr0a, write: (a, v) => tccr0a = v);
-    mcu.memory.connect(TCCR0B_ADDRESS, read: (a) => tccr0b, write: (a, v) => tccr0b = v);
-    mcu.memory.connect(OCR0A_ADDRESS, read: (a) => ocr0a, write: (a, v) => ocr0a = v);
-    mcu.memory.connect(OCR0B_ADDRESS, read: (a) => ocr0b, write: (a, v) => ocr0b = v);
+    mcu.connect(TIMSK0_ADDRESS, read: (a) => timsk0, write: (a, v) => timsk0 = v);
+    mcu.connect(TCNT0_ADDRESS, read: (a) => tcnt0, write: (a, v) => tcnt0 = v);
+    mcu.connect(TCCR0A_ADDRESS, read: (a) => tccr0a, write: (a, v) => tccr0a = v);
+    mcu.connect(TCCR0B_ADDRESS, read: (a) => tccr0b, write: (a, v) => tccr0b = v);
+    mcu.connect(OCR0A_ADDRESS, read: (a) => ocr0a, write: (a, v) => ocr0a = v);
+    mcu.connect(OCR0B_ADDRESS, read: (a) => ocr0b, write: (a, v) => ocr0b = v);
 
   }
 
@@ -140,7 +140,7 @@ class Timer0 {
           if (tcnt0 == 255) {
 
             if (toie0 == 1) {
-              this.mcu.interruptManager.registerPending(InterruptManager.TIMER0_OVF_VECTOR);
+              mcu.interruptManager.registerPending(InterruptManager.TIMER0_OVF_VECTOR);
             }
 
             tcnt0 = 0;
@@ -150,7 +150,6 @@ class Timer0 {
             tcnt0++;
 
           }
-
           break;
 
       }
@@ -171,9 +170,8 @@ class Timer0 {
     mode = wgm01 << 1 | wgm00;
 
     if (log.isLoggable(Level.FINE)) {
-      log.fine("Timer Mode updated: ${mode.toRadixString(2).padLeft(3, '0')}");
+      //log.fine("Timer Mode updated: ${mode.toRadixString(2).padLeft(3, '0')}");
     }
-
   }
 
   void updatePrescaler() {
@@ -181,7 +179,7 @@ class Timer0 {
     prescaler = cs02 << 2 | cs01 << 1 | cs00;
 
     if (log.isLoggable(Level.FINE)) {
-      log.fine("Prescaler updated: ${prescaler.toRadixString(2).padLeft(3, '0')}");
+      //log.fine("Prescaler updated: ${prescaler.toRadixString(2).padLeft(3, '0')}");
     }
 
   }
@@ -215,7 +213,7 @@ class Timer0 {
     _timsk0 = value & 0xFF;
 
     if (log.isLoggable(Level.FINE)) {
-      log.fine("TIMSK0: ${_timsk0.toRadixString(2).padLeft(8, '0')}");
+      //  log.fine("TIMSK0: ${_timsk0.toRadixString(2).padLeft(8, '0')}");
     }
 
   }
@@ -260,7 +258,7 @@ class Timer0 {
 
     _tifr0 = value & 0xFF;
 
-    if (log.isLoggable(Level.FINE)) {
+    if (log.isLoggable(Level.FINER)) {
       log.fine("TIFR0: ${_tifr0.toRadixString(2).padLeft(8, '0')}");
     }
 

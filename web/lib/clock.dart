@@ -15,6 +15,7 @@
 library dartuino.clock;
 
 import 'package:logging/logging.dart';
+import 'mcu.dart';
 
 /**
  * Simple implementation of a Clock source
@@ -23,31 +24,39 @@ class Clock {
 
   static final Logger log = new Logger('dartuino.clock.Clock');
 
-  List _devices;
+  MCUnit mcu;
+  
+  List _pulseListeners;
 
-  Clock() {
-    log.fine("Initializing Clock");
-    _devices = new List();
+  Clock(this.mcu) {
+    log.info("Initializing Clock");
+    _pulseListeners = new List<dynamic>();
+
   }
 
   void run() {
+
+
+    log.info("---- Running ----");
+
     for (;;) {
-      _pulse();
+      pulse();
     }
   }
-
-  void register(device) {
-
-    if (log.isLoggable(Level.FINER)) {
-      log.finer("Registering device: ${device.toString()}");
-    }
-
-    _devices.add(device);
-
+  
+  addPulseListener(var pulseListener) {
+    _pulseListeners.add(pulseListener);
   }
 
-  void _pulse() {
-    _devices.forEach((device) => device.step());
+  void pulse() {
+    
+    mcu.step();
+    mcu.timer0.step();
+    mcu.usart0.step();
+    
+    for (var listener in _pulseListeners) {
+      listener(this);
+    }
   }
 
 

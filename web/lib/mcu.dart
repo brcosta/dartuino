@@ -23,10 +23,12 @@ import 'package:logging/logging.dart';
 import 'clock.dart';
 
 import 'src/memory.dart';
+import 'src/registers.dart';
 import 'src/program.dart';
 
 import 'src/modules/interrupt_manager.dart';
 import 'src/modules/timer.dart';
+import 'src/modules/usart.dart';
 
 import 'src/misc/util.dart';
 import 'src/misc/intel_hex.dart';
@@ -83,12 +85,8 @@ class MCUnit {
    * Program Counter Register.
    */
   int _pc;
+  int _status;
   int lastPc;
-
-  /**
-   * Total executed cycles.
-   */
-  int totalCycles;
 
   /**
    * Number of cycles to wait until next instruction.
@@ -111,6 +109,11 @@ class MCUnit {
   Memory memory;
 
   /**
+   * Tentatively fast registers access module
+   */
+  Registers registers;
+
+  /**
    * Flash memory (8 bit addresseable) module.
    */
   Memory flash;
@@ -120,16 +123,15 @@ class MCUnit {
    */
   Program program;
 
-  /**
-   * General purpose registers memory module.
-   */
-  Memory registers;
-
   InterruptManager interruptManager;
 
   Timer0 timer0;
+  
+  Usart0 usart0;
 
   Clock _clock;
+  
+  int cycles = 0;
 
   MCUnit.fromHex(String hexFile) {
     reset(hexFile);
@@ -138,33 +140,38 @@ class MCUnit {
   /**
    * Connect read and write listeners to 16 bit selected [address].
    */
-  void connect(address, {readListener, writeListener}) {
-    memory.connect(address, read: readListener, write: writeListener);
+  void connect(address, {read, write}) {
+    memory.connect(address, read: read, write: write);
   }
 
   /**
    * Reset the unit and loads a program (in Intel HEX format).
    */
   void reset(String hexFile) {
-
+    
+    initializeInstructions();
+    
     _memoryStorage = new Uint8List(MEMORY_SIZE + SP_DEFAULT_VALUE + 1);
     _flashStorage = parseIntelHex(hexFile);
 
     memory = new Memory(_memoryStorage);
-    registers = new Memory(_memoryStorage);
+    registers = new Registers(_memoryStorage);
 
     flash = new Memory(_flashStorage);
     program = new Program(new Uint16List.view(_flashStorage.buffer));
 
     timer0 = new Timer0(this);
     interruptManager = new InterruptManager();
+    
+    usart0 = new Usart0(this);
 
     pc = 0;
     sp = SP_DEFAULT_VALUE - 1;
 
     status = 0;
-    totalCycles = 0;
     waitCycles = 0;
+
+    connect(STATUS_ADDRESS, write: (k, v) => _status = v);
 
   }
 
@@ -194,9 +201,9 @@ class MCUnit {
 
       if (i == HIGH) {
 
-        vector = interruptManager.pendingInterrupts.indexOf(true);
+        vector = interruptManager.firstPendingInterrupt;
 
-        if (vector != null && vector != -1) {
+        if (vector != -1) {
           interrupted = true;
           waitCycles = 4;
         }
@@ -208,8 +215,8 @@ class MCUnit {
         memory[sp--] = pc >> 8;
         memory[sp--] = pc & 0xFF;
 
-        pc = ((vector) << 1);
-        interruptManager.unregisterPending(vector * 2);
+        pc = (vector * 2);
+        interruptManager.unregisterPending(vector);
 
         i = LOW;
 
@@ -221,22 +228,27 @@ class MCUnit {
         pc = pc + 1;
 
         waitCycles = instruction.execute(this, opcode);
+  
+        memory.write(STATUS_ADDRESS, _status);
 
       }
 
     } else {
 
-      log.finest('CPU WAIT...');
+      if (log.isLoggable(Level.FINEST)) {
+        log.finest('CPU WAIT...');
+      }
 
     }
-
+    
+    cycles++;
     waitCycles--;
-    totalCycles++;
 
   }
 
-  int readStatus(int index) => getBit(status, index);
-  writeStatus(int index, int value) => status = setBit(status, index, value);
+  void writeStatus(int bit, int value) {
+    status = (value == 1) ? status | (1 << bit) : status & ~(1 << bit);
+  }
 
   int get pc => _pc;
 
@@ -245,51 +257,59 @@ class MCUnit {
     _pc = value;
   }
 
-  Clock get clock => _clock;
-
-  void set clock(clock) {
-    _clock = clock;
-    _clock.register(this);
-    _clock.register(this.timer0);
+  int get status {
+    return _status;
   }
 
-  int get status => memory[STATUS_ADDRESS];
-  set status(int value) => memory[STATUS_ADDRESS] = value;
+  void set status(int value) {
+    _status = value & 0xFF;
+  }
 
   int get sp => memory.readWord(SP_ADDRESS);
-  set sp(int value) => memory.writeWord(SP_ADDRESS, value);
 
-  int get rx => registers.readWord(INDIRECT_X);
-  set rx(int value) => registers.writeWord(INDIRECT_X, value);
+  set sp(int value) {
+    if (value < 0) { 
+      value = SP_DEFAULT_VALUE - 1;
+    }
+    
+    if (value >= SP_DEFAULT_VALUE) {
+      value = 0;
+    }
+    
+    memory.writeWord(SP_ADDRESS, value);
+  }
 
-  int get ry => registers.readWord(INDIRECT_Y);
-  set ry(int value) => registers.writeWord(INDIRECT_Y, value);
+  int get rx => memory.readWord(INDIRECT_X);
+  set rx(int value) => memory.writeWord(INDIRECT_X, value);
 
-  int get rz => registers.readWord(INDIRECT_Z);
-  set rz(int value) => registers.writeWord(INDIRECT_Z, value);
+  int get ry => memory.readWord(INDIRECT_Y);
+  set ry(int value) => memory.writeWord(INDIRECT_Y, value);
 
-  int get c => readStatus(STATUS_C);
-  set c(int value) => writeStatus(STATUS_C, value);
+  int get rz => memory.readWord(INDIRECT_Z);
+  set rz(int value) => memory.writeWord(INDIRECT_Z, value);
 
-  int get z => readStatus(STATUS_Z);
-  set z(int value) => writeStatus(STATUS_Z, value);
+  int get c => getBit(status, STATUS_C);
+  void set c(int value) => writeStatus(STATUS_C, value);
 
-  int get n => readStatus(STATUS_N);
-  set n(int value) => writeStatus(STATUS_N, value);
+  int get z => getBit(status, STATUS_Z);
+  void set z(int value) => writeStatus(STATUS_Z, value);
 
-  int get v => readStatus(STATUS_V);
-  set v(int value) => writeStatus(STATUS_V, value);
+  int get n => getBit(status, STATUS_N);
+  void set n(int value) => writeStatus(STATUS_N, value);
 
-  int get s => readStatus(STATUS_S);
-  set s(int value) => writeStatus(STATUS_S, value);
+  int get v => getBit(status, STATUS_V);
+  void set v(int value) => writeStatus(STATUS_V, value);
 
-  int get h => readStatus(STATUS_H);
-  set h(int value) => writeStatus(STATUS_H, value);
+  int get s => getBit(status, STATUS_S);
+  void set s(int value) => writeStatus(STATUS_S, value);
 
-  int get t => readStatus(STATUS_T);
-  set t(int value) => writeStatus(STATUS_T, value);
+  int get h => getBit(status, STATUS_H);
+  void set h(int value) => writeStatus(STATUS_H, value);
 
-  int get i => readStatus(STATUS_I);
-  set i(int value) => writeStatus(STATUS_I, value);
+  int get t => getBit(status, STATUS_T);
+  void set t(int value) => writeStatus(STATUS_T, value);
+
+  int get i => getBit(status, STATUS_I);
+  void set i(int value) => writeStatus(STATUS_I, value);
 
 }

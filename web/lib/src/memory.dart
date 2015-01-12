@@ -45,7 +45,7 @@ class Memory {
   void operator []=(int address, int value) {
 
     if (_writeListeners.containsKey(address)) {
-      _writeListeners[address](address, value & 0xFF);
+        _writeListeners[address](address, value & 0xFF);
     }
 
     _memory[address] = value & 0xFF;
@@ -54,7 +54,7 @@ class Memory {
 
   int operator [](int address) {
 
-    if (_readListeners.containsKey(address)) {
+    if (_readListeners.containsKey(address) && _readListeners[address](address) != null) {
       return _readListeners[address](address) & 0xFF;
     }
 
@@ -62,13 +62,15 @@ class Memory {
 
   }
 
-  int readWord(int i) {
-    return (_memory[i + 1] << 8) | _memory[i];
+  void write(int address, int value) {
+    _memory[address] = value;
   }
 
+  int readWord(int i) => (this[i + 1] << 8) | this[i];
+
   void writeWord(int i, int value) {
-    _memory[i + 1] = value >> 8;
-    _memory[i] = value & 0xFF;
+    this[i + 1] = (value & 0xFF00) >> 8;
+    this[i] = value & 0xFF;
   }
 
 }

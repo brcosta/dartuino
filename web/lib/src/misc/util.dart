@@ -17,7 +17,10 @@ import 'package:logging/logging.dart';
 
 final Logger log = new Logger('dartuino.util');
 
-int setBit(int num, int bit, int value) => (value == 1) ? num | (1 << bit) : num & ~(1 << bit);
+int setBit(int num, int bit, int value) {
+  int mask = 1 << bit;
+  return (num & ~mask) | (-value & mask);
+}
 
 int getBit(num, bit) => ((num >> bit) & 1);
 
@@ -25,11 +28,11 @@ logInstruction(var mcu, var instruction, [arg1, arg2]) {
 
   if (log.isLoggable(Level.FINER)) {
 
-    String address = "0x${(((mcu.lastPc)*2).toRadixString(16).padLeft(4, '0')).toUpperCase()}";
+    String address = "0x${(((mcu.lastPc)).toRadixString(16).padLeft(4, '0')).toUpperCase()} SP: ${mcu.sp.toRadixString(16).padLeft(4, '0')}  -> Cycle: ${mcu.count}";
     String mnemonic = (instruction.mnemonic.padRight(5));
 
     if (arg1 == null) {
-      log.finer("$address\t$mnemonic");
+      log.finer("$address\t$mnemonic ");
     } else {
       if (arg2 == null) {
         log.finer("$address\t$mnemonic\t$arg1");
@@ -38,7 +41,6 @@ logInstruction(var mcu, var instruction, [arg1, arg2]) {
       }
 
     }
-
   }
 
 }
@@ -47,16 +49,14 @@ logRegisters(var mcu) {
 
   if (log.isLoggable(Level.FINEST)) {
 
-    var r = "";
+    StringBuffer r = new StringBuffer();
 
     for (int i = 0; i < 32; i++) {
-      r += ' R${i.toString().padLeft(2, '0')}: ${(mcu.registers[i].toRadixString(16).padLeft(2, '0'))}';
+      r.write(' R${i.toString().padLeft(2, '0')}: ${(mcu.registers[i].toRadixString(16).padLeft(2, '0'))}');
     }
 
-    log.finest(r);
-    log.finest(
-        'Status: ${mcu.status.toRadixString(2).padLeft(8, '0')} (${mcu.status}) - SP: 0x${mcu.sp.toRadixString(16)} - X: ${mcu.rx}, Y: ${mcu.ry}, Z: ${mcu.rz}'
-        );
+    log.finest(r.toString());
+    log.finest('Status: ${mcu.status.toRadixString(2).padLeft(8, '0')} (${mcu.status}) - SP: 0x${mcu.sp.toRadixString(16)} - X: ${mcu.rx}, Y: ${mcu.ry}, Z: ${mcu.rz}');
 
   }
 
